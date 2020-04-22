@@ -1,4 +1,6 @@
-const bodyParser = require("body-parser"),
+const expressSanitizer = require("express-sanitizer"),
+	methodOverride = require("method-override"),
+	bodyParser = require("body-parser"),
 	mongoose = require("mongoose"),
 	express = require("express"),
 	app = express();
@@ -7,10 +9,13 @@ const bodyParser = require("body-parser"),
 mongoose.connect("mongodb://localhost/rest_blog", {
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
+	useFindAndModify: false,
 });
 app.set("view engine", "ejs");
 app.use(express.static("public"));
+app.use(methodOverride("_method"));
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(expressSanitizer());
 
 // Mongoose/Model fonfig
 const blogSchema = new mongoose.Schema({
@@ -22,19 +27,13 @@ const blogSchema = new mongoose.Schema({
 
 const Blog = mongoose.model("Blog", blogSchema);
 
-// Blog.create({
-// 	title: "This is a New Post",
-// 	image:
-// 		"https://images.unsplash.com/photo-1543852786-1cf6624b9987?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=634&q=80",
-// 	body: "Hello World!",
-// });
-
 // Routes
 
 // INDEX Route
 app.get("/", (req, res) => {
 	res.redirect("/blogs");
 });
+
 app.get("/blogs", (req, res) => {
 	Blog.find({}, (err, blogs) => {
 		if (err) {
@@ -53,11 +52,57 @@ app.get("/blogs/new", (req, res) => {
 // CREATE Route
 app.post("/blogs", (req, res) => {
 	// Create Blog
+	req.body.bblog.body = req.sanitize(req.bbody.blog.body);
 	Blog.create(req.body.blog, (err, newBlog) => {
 		if (err) {
 			res.render("new");
 		} else {
 			// Redirect to Index
+			res.redirect("/blogs");
+		}
+	});
+});
+
+// SHOW Route
+app.get("/blogs/:id", (req, res) => {
+	Blog.findById(req.params.id, (err, foundBlog) => {
+		if (err) {
+			res.redirect("/blogs");
+		} else {
+			res.render("show", { blog: foundBlog });
+		}
+	});
+});
+
+// EDIT Route
+app.get("/blogs/:id/edit", (req, res) => {
+	req.body.bblog.body = req.sanitize(req.bbody.blog.body);
+	Blog.findById(req.params.id, (err, foundBlog) => {
+		if (err) {
+			res.redirect("/blogs");
+		} else {
+			res.render("edit", { blog: foundBlog });
+		}
+	});
+});
+
+// UPDATE Route
+app.put("/blogs/:id", (req, res) => {
+	Blog.findByIdAndUpdate(req.params.id, req.body.blog, (err, foundBlog) => {
+		if (err) {
+			res.redirect("/blogs");
+		} else {
+			res.redirect("/blogs/" + req.params.id);
+		}
+	});
+});
+
+// DELETE Route
+app.delete("/blogs/:id", (req, res) => {
+	Blog.findByIdAndRemove(req.params.id, (err) => {
+		if (err) {
+			res.redirect("/blogs");
+		} else {
 			res.redirect("/blogs");
 		}
 	});
